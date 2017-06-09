@@ -117,8 +117,7 @@ class TfPolicy(Policy):
                               batch_size=1, network_config=network_config)
 
         sess = tf.Session()
-        init_op = tf.initialize_all_variables()
-        sess.run(init_op)
+        sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver()
         check_file = pol_dict['checkpoint_path_tf']
         saver.restore(sess, check_file)

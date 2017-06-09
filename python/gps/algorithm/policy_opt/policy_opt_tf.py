@@ -61,8 +61,7 @@ class PolicyOptTf(PolicyOpt):
             else:
                 self.x_idx = self.x_idx + list(range(i, i+dim))
             i += dim
-        init_op = tf.initialize_all_variables()
-        self.sess.run(init_op)
+        self.sess.run(tf.global_variables_initializer())
 
     def init_network(self):
         """ Helper method to initialize the tf networks used """

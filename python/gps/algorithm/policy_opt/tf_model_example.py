@@ -10,21 +10,21 @@ def init_weights(shape, name=None):
 
 
 def init_bias(shape, name=None):
-    return tf.get_variable(name, initializer=tf.zeros(shape, dtype='float'))
+    return tf.get_variable(name, initializer=tf.zeros(shape, dtype=tf.float32))
 
 
 def batched_matrix_vector_multiply(vector, matrix):
     """ computes x^T A in mini-batches. """
     vector_batch_as_matricies = tf.expand_dims(vector, [1])
-    mult_result = tf.batch_matmul(vector_batch_as_matricies, matrix)
-    squeezed_result = tf.squeeze(mult_result, [1])
+    mult_result = tf.matmul(vector_batch_as_matricies, matrix)
+    squeezed_result = tf.squeeze(mult_result, axis=[1])
     return squeezed_result
 
 
 def euclidean_loss_layer(a, b, precision, batch_size):
     """ Math:  out = (action - mlp_out)'*precision*(action-mlp_out)
                     = (u-uhat)'*A*(u-uhat)"""
-    scale_factor = tf.constant(2*batch_size, dtype='float')
+    scale_factor = tf.constant(2*batch_size, dtype=tf.float32)
     uP = batched_matrix_vector_multiply(a-b, precision)
     uPu = tf.reduce_sum(uP*(a-b))  # this last dot product is then summed, so we just the sum all at once.
     return uPu/scale_factor
@@ -35,9 +35,9 @@ def get_input_layer(dim_input, dim_output):
         net_input: usually an observation.
         action: mu, the ground truth actions we're trying to learn.
         precision: precision matrix used to commpute loss."""
-    net_input = tf.placeholder("float", [None, dim_input], name='nn_input')
-    action = tf.placeholder('float', [None, dim_output], name='action')
-    precision = tf.placeholder('float', [None, dim_output, dim_output], name='precision')
+    net_input = tf.placeholder(tf.float32, [None, dim_input], name='nn_input')
+    action = tf.placeholder(tf.float32, [None, dim_output], name='action')
+    precision = tf.placeholder(tf.float32, [None, dim_output, dim_output], name='precision')
     return net_input, action, precision
 
 
@@ -158,7 +158,7 @@ def multi_modal_network(dim_input=27, dim_output=7, batch_size=25, network_confi
 
     conv_out_flat = tf.reshape(conv_layer_1, [-1, conv_out_size])
 
-    fc_input = tf.concat(concat_dim=1, values=[conv_out_flat, state_input])
+    fc_input = tf.concat(values=[conv_out_flat, state_input], axis=1)
 
     fc_output, _, _ = get_mlp_layers(fc_input, n_layers, dim_hidden)
 
@@ -208,6 +208,8 @@ def multi_modal_network_fp(dim_input=27, dim_output=7, batch_size=25, network_co
     image_input = tf.reshape(image_input, [-1, num_channels, im_width, im_height])
     image_input = tf.transpose(image_input, perm=[0,3,2,1])
 
+    # ToDo (phil): Verify this. Can't see pooling here, only one conv layer
+    # with a stride of 2.
     # we pool twice, each time reducing the image size by a factor of 2.
     conv_out_size = int(im_width/(2.0*pool_size)*im_height/(2.0*pool_size)*num_filters[1])
     first_dense_size = conv_out_size + len(x_idx)
@@ -251,12 +253,12 @@ def multi_modal_network_fp(dim_input=27, dim_output=7, batch_size=25, network_co
                           [-1, num_rows*num_cols])
     softmax = tf.nn.softmax(features)
 
-    fp_x = tf.reduce_sum(tf.mul(x_map, softmax), [1], keep_dims=True)
-    fp_y = tf.reduce_sum(tf.mul(y_map, softmax), [1], keep_dims=True)
+    fp_x = tf.reduce_sum(tf.multiply(x_map, softmax), [1], keep_dims=True)
+    fp_y = tf.reduce_sum(tf.multiply(y_map, softmax), [1], keep_dims=True)
 
-    fp = tf.reshape(tf.concat(1, [fp_x, fp_y]), [-1, num_fp*2])
+    fp = tf.reshape(tf.concat([fp_x, fp_y], axis=1), [-1, num_fp*2])
 
-    fc_input = tf.concat(concat_dim=1, values=[fp, state_input])
+    fc_input = tf.concat(values=[fp, state_input], axis=1)
 
     fc_output, weights_FC, biases_FC = get_mlp_layers(fc_input, n_layers, dim_hidden)
     fc_vars = weights_FC + biases_FC
